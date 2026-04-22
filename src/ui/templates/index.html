@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>智能门锁监控中心</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='bootstrap.min.css') }}">
+    <script src="{{ url_for('static', path='qrcode.min.js') }}"></script>
+
+    <style>
+        :root {
+            /* 重新定义的现代配色 */
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --primary-blue: #007aff;
+            --text-main: #1d1d1f;
+            --text-sub: #6e6e73;
+            --terminal-bg: rgba(28, 28, 30, 0.95);
+            --success-green: #32d74b;
+            --error-red: #ff3b30;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 40px 20px 100px 20px;
+            min-height: 100vh;
+            /* 背景装饰网格 */
+            background-image: radial-gradient(#d1d1d6 0.5px, transparent 0.5px);
+            background-size: 30px 30px;
+        }
+
+        .main-title {
+            font-weight: 800;
+            margin-bottom: 30px;
+            letter-spacing: -1.5px;
+            background: linear-gradient(to right, #1d1d1f, #434343);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 删去了顶部刷新按钮样式（按钮已移除以节省屏幕空间） */
+
+        /* 卡片玻璃效果 */
+        .card {
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 28px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .card-header {
+            background: rgba(255, 255, 255, 0.3);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 22px 28px;
+            font-weight: 700;
+            font-size: 17px;
+        }
+
+        /* 设备信息 */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            font-size: 15px;
+        }
+
+        .info-label {
+            color: var(--text-sub);
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: var(--text-main);
+            font-weight: 700;
+            font-family: 'SF Mono', Consolas, monospace;
+        }
+
+        #qrcode {
+            padding: 8px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        #qrcode img {
+            width: 70px;
+            height: 70px;
+        }
+
+        /* 状态指示灯呼吸动画 */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 30px;
+            background: rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            position: relative;
+        }
+
+        /* 呼吸灯效果 */
+        .dot::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            background: inherit;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        /* 日志终端 */
+        #log-area {
+            background: var(--terminal-bg);
+            color: var(--success-green);
+            height: 520px;
+            overflow-y: auto;
+            padding: 30px 30px 60px 30px;
+            /* 减少底部内边距以移除多余空白 */
+            font-family: "SFMono-Regular", "Menlo", monospace;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        /* 底部指令栏 */
+        .command-bar-wrapper {
+            position: fixed;
+            bottom: 40px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .input-container {
+            width: 90%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(30px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 30px;
+            padding: 10px 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .input-container:focus-within {
+            transform: translateY(-5px) scale(1.05);
+            background: #ffffff;
+            box-shadow: 0 30px 60px rgba(0, 122, 255, 0.2);
+        }
+
+        /* 隐藏但可聚焦的真实输入，用于接收键盘/WS 数据 */
+        .command-input.visually-hidden {
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 支付密码六位格子样式 */
+        .pin-box {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 6px;
+            user-select: none;
+        }
+
+        .pin-cell {
+            width: 52px;
+            height: 56px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: transparent;
+            /* 用掩码显示 */
+            position: relative;
+            transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+        }
+
+        .pin-cell.filled::after {
+            content: '';
+            width: 12px;
+            height: 12px;
+            background: var(--text-main);
+            border-radius: 50%;
+            display: block;
+        }
+
+        .pin-cell.focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 8px 28px rgba(0, 122, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        /* 小屏幕适配 */
+        @media (max-width:420px) {
+            .pin-cell {
+                width: 44px;
+                height: 50px;
+            }
+        }
+
+        /* 滚动条美化 */
+        #log-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #log-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #log-area::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        #log-area::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 针对小屏/树莓派屏幕的适配：上移控制台并减少底部空白，避免控制台底部被遮挡 */
+        @media (max-height: 800px),
+        (max-width: 900px) {
+            body {
+                padding-bottom: 60px;
+            }
+
+            .col-md-8 .card {
+                margin-top: -48px;
+            }
+
+            #log-area {
+                height: 360px;
+                padding-bottom: 20px;
+                /* 小屏时也减小底部内边距以减少空白 */
+            }
+
+            .command-bar-wrapper {
+                bottom: 8px;
+            }
+        }
+
+        /* 复制成功视觉 */
+        .info-value.copied {
+            color: var(--primary-blue);
+            transition: color 0.2s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="main-title">🔒 门锁监控中心</h2>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">设备状态</div>
+                    <div class="card-body">
+                        <div class="info-row"
+                            style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; margin-bottom: 24px;">
+
+                            <div style="display: flex; flex-direction: column; flex: 1;">
+                                <span class="info-label" style="height: 24px; line-height: 24px; display: block;">设备
+                                    ID</span>
+
+                                <div style="height: 88px; display: flex; align-items: center; margin-top: 4px;">
+                                    <span class="info-value" id="device-id"
+                                        style="cursor: pointer; font-size: 15px; word-break: break-all; line-height: 1.4;"
+                                        title="点击复制">
+                                        {{ status.deviceId }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                                <span class="info-label"
+                                    style="height: 24px; line-height: 24px; margin-bottom: 8px; display: block;">设备二维码</span>
+
+                                <div id="qrcode"
+                                    style="background: white; padding: 4px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center;">
+                                </div>
+                            </div>
+
+                        </div>
+                        <!-- <div class="info-row">
+                            <span class="info-label">物理锁状态</span>
+                            <div class="status-indicator">
+                                <div class="dot"
+                                    style="background: {{ '#32d74b' if status.lock_status == 'LOCKED' else '#ff3b30' }}">
+                                </div>
+                                {{ status.lock_status }}
+                            </div>
+                        </div> -->
+                        <div class="info-row">
+                            <span class="info-label">服务器注册</span>
+                            <span class="info-value">{{ status.reg_status }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">MQTT 连接</span>
+                            <span class="info-value">{{ status.mqtt_status }}</span>
+                        </div>
+                        <div class="info-row">
+                            <title class="info-label">提示</title>
+                            <span class="info-value">按下 + 键开始语音识别</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>实时系统日志</span>
+                        <div id="focus-status" class="status-indicator">
+                            <div class="dot"></div>
+                            <span>监听就绪</span>
+                        </div>
+                    </div>
+                    <div id="log-area"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="command-bar-wrapper">
+        <div class="input-container" id="pin-container" tabindex="0">
+            <!-- 可接收输入的隐藏真实输入框 -->
+            <input type="tel" inputmode="numeric" id="cmd-input" class="command-input visually-hidden" maxlength="6"
+                autocomplete="one-time-code" />
+
+            <!-- 可视化的六位支付密码格子（仅展示） -->
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <div id="face-message" style="min-height:20px; font-weight:700; color:#1d1d1f"></div>
+                <div class="pin-box" id="pin-box" aria-hidden="true">
+                    <div class="pin-cell" data-index="0"></div>
+                    <div class="pin-cell" data-index="1"></div>
+                    <div class="pin-cell" data-index="2"></div>
+                    <div class="pin-cell" data-index="3"></div>
+                    <div class="pin-cell" data-index="4"></div>
+                    <div class="pin-cell" data-index="5"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // 确保在页面加载后生成
+        (function () {
+            const idText = document.getElementById('device-id').textContent.trim();
+            if (idText) {
+                new QRCode(document.getElementById("qrcode"), {
+                    text: idText,
+                    width: 80,
+                    height: 80
+                });
+            }
+        })();
+    </script>
+
+    <script>
+        const logArea = document.getElementById('log-area');
+        const cmdInput = document.getElementById('cmd-input');
+        const pinBox = document.getElementById('pin-box');
+        const pinCells = pinBox ? Array.from(pinBox.querySelectorAll('.pin-cell')) : [];
+        const focusStatus = document.getElementById('focus-status');
+        const focusDot = focusStatus.querySelector('.dot');
+
+        // 1. WebSocket 日志连接
+        const ws = new WebSocket(`ws://${window.location.host}/ws/logs`);
+        ws.onmessage = (event) => {
+            const line = document.createElement('div');
+            line.style.marginBottom = '4px';
+            line.innerHTML = `<span style="color: #86868b">[${new Date().toLocaleTimeString()}]</span> ${event.data}`;
+            logArea.appendChild(line);
+            logArea.scrollTop = logArea.scrollHeight;
+        };
+
+        // 2. 自动聚焦 & 交互状态
+        window.onload = () => cmdInput.focus();
+
+        document.addEventListener('click', () => cmdInput.focus());
+
+        window.onfocus = () => {
+            focusStatus.querySelector('span').textContent = "监听就绪";
+            focusDot.style.background = "#32d74b";
+        };
+        window.onblur = () => {
+            focusStatus.querySelector('span').textContent = "失焦挂起";
+            focusDot.style.background = "#ff3b30";
+        };
+
+        const wsInput = new WebSocket(`ws://${window.location.host}/ws/keyboard`);
+        let faceMsgTimeout = null;
+
+        // 将外部输入（WebSocket / 键盘）统一到这里来更新显示
+        function updatePinDisplay(val) {
+            const s = String(val || '').slice(0, 6);
+            // 更新真实输入值（便于后续交互）
+            cmdInput.value = s;
+
+            // 更新每个格子的填充状态
+            pinCells.forEach((cell, i) => {
+                if (i < s.length) {
+                    cell.classList.add('filled');
+                } else {
+                    cell.classList.remove('filled');
+                }
+                cell.classList.remove('focus');
+            });
+
+            // 设置当前焦点格子样式
+            if (s.length < pinCells.length) {
+                pinCells[s.length].classList.add('focus');
+            } else if (s.length === pinCells.length) {
+                // 满位：短暂展示后清空（仿支付行为）
+                pinCells[pinCells.length - 1].classList.add('focus');
+                setTimeout(() => {
+                    clearPinDisplay();
+                }, 100);
+            }
+        }
+
+        function clearPinDisplay() {
+            cmdInput.value = '';
+            pinCells.forEach(c => c.classList.remove('filled', 'focus'));
+        }
+
+        // 当收到 WebSocket 输入时统一处理
+        wsInput.onmessage = (event) => {
+            let data = event.data;
+            try {
+                const parsed = JSON.parse(data);
+                if (parsed && parsed.type) {
+                    const fm = document.getElementById('face-message');
+                    if (parsed.type === 'wait') {
+                        fm.textContent = parsed.message || '请按下enter进行人脸识别';
+                        fm.style.color = '#ff9f0a';
+                        // 清理之前的定时器并设置新的 5 秒自动清除
+                        if (faceMsgTimeout) { clearTimeout(faceMsgTimeout); faceMsgTimeout = null; }
+                        faceMsgTimeout = setTimeout(() => { fm.textContent = ''; faceMsgTimeout = null; }, 5000);
+                    } else if (parsed.type === 'success') {
+                        // 若存在等待定时器，先清除避免竞争
+                        if (faceMsgTimeout) { clearTimeout(faceMsgTimeout); faceMsgTimeout = null; }
+                        fm.textContent = parsed.message || '人脸验证成功';
+                        fm.style.color = '#32d74b';
+                        // 清空显示密码格
+                        setTimeout(() => { clearPinDisplay(); fm.textContent = ''; }, 800);
+                    } else if (parsed.type === 'fail') {
+                        if (faceMsgTimeout) { clearTimeout(faceMsgTimeout); faceMsgTimeout = null; }
+                        fm.textContent = parsed.message || '人脸验证失败';
+                        fm.style.color = '#ff3b30';
+                        setTimeout(() => { fm.textContent = ''; }, 1000);
+                    }
+                    return;
+                }
+            } catch (e) {
+                // not json, fallthrough
+            }
+            updatePinDisplay(data);
+        };
+
+        // 键盘输入处理（真实输入框被隐藏但仍接收焦点/输入）
+        cmdInput.addEventListener('input', (e) => {
+            updatePinDisplay(cmdInput.value);
+        });
+
+        cmdInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                // 允许删除：真实输入会处理，input 事件随后触发
+                return;
+            }
+        });
+
+        // 点击格子容器时把焦点给隐藏输入框
+        const pinContainer = document.getElementById('pin-container');
+        if (pinContainer) {
+            pinContainer.addEventListener('click', () => cmdInput.focus());
+        }
+    </script>
+    <script>
+        const deviceIdEl = document.getElementById('device-id');
+
+        if (deviceIdEl) {
+            deviceIdEl.addEventListener('click', async () => {
+                // 1. 获取文本并去除前后空格
+                const text = deviceIdEl.textContent.trim();
+                if (!text || text === '已复制') return;
+
+                // 2. 尝试复制的通用函数
+                async function copyToClipboard(val) {
+                    // 如果支持 navigator.clipboard 且是安全环境
+                    if (navigator.clipboard && window.isSecureContext) {
+                        return await navigator.clipboard.writeText(val);
+                    } else {
+                        // 兜底方案：创建一个隐藏的 input
+                        const textArea = document.createElement("textarea");
+                        textArea.value = val;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        try {
+                            document.execCommand('copy');
+                        } catch (err) {
+                            console.error('无法复制', err);
+                        }
+                        document.body.removeChild(textArea);
+                    }
+                }
+
+                try {
+                    await copyToClipboard(text);
+
+                    // 3. 视觉反馈
+                    const oldText = text;
+                    deviceIdEl.textContent = '已复制';
+                    deviceIdEl.classList.add('copied');
+
+                    setTimeout(() => {
+                        deviceIdEl.textContent = oldText;
+                        deviceIdEl.classList.remove('copied');
+                    }, 1000);
+
+                } catch (err) {
+                    console.error('复制失败:', err);
+                }
+            });
+        }
+    </script>
+
+</body>
+
+</html>

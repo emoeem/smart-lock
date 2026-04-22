@@ -1,0 +1,29 @@
+# 虚拟环境
+.venv/
+
+# 音频录音文件
+data/audio_recordings/
+src/voice/data/audio_recordings/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 配置
+.vscode/
+.idea/
+
+# 日志文件
+logs/*.log
+
+# 其他
+*.swp
+*.swo
+*~

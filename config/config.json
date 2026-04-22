@@ -1,0 +1,17 @@
+{
+    "deviceId": "b8555941da3844da90b2a9b1284fbc4f",
+    "name": "1230",
+    "model": "RaspberryPi",
+    "softwareVersion": "1.0.0",
+    "isRegister": true,
+    "lock_config": {
+        "lock_password": "U0hBLTI1NiQxJHJwaV9zbWFydF9sb2NrX3NhbHRfdjEkMTY1N2VhZDYzZTQwZTg5Mjc0Mzc1MjAzMmU0YmY0NWU1NjBlNjc4MjY5OWI1OTQyZWQyZmI0ZjI0YWU5NDVkYw==",
+        "lock_status": "locked",
+        "lock_features": [
+            "PASSWORD",
+            "REMOTE_ACCESS",
+            "VOICE",
+            "FACE"
+        ]
+    }
+}

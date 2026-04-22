@@ -1,0 +1,23 @@
+# Web 后端
+fastapi==0.128.0
+uvicorn==0.39.0
+jinja2>=3.1.0
+
+# MQTT
+paho-mqtt>=1.6.1
+
+# HTTP 请求
+requests>=2.31.0
+websockets>=12.0
+
+# 设备输入（USB 键盘）
+evdev>=1.6.1
+
+# 数据校验（FastAPI 依赖）
+pydantic>=2.5.0
+
+# 并发与异步（FastAPI 依赖）
+anyio>=4.0.0
+h11>=0.14.0
+starlette>=0.49.0
+typing-extensions>=4.5.0
